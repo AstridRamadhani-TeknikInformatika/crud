@@ -1,5 +1,6 @@
 <?php
 header('Access-Control-Allow-Origin: http://127.0.0.1:5174');
+header('Access-Control-Allow-Origin: https://tugas6-pweb-git-master-astridramadhani-teknikinformatika.vercel.app');
 header('Access-Control-Allow-Header: Content-Type');
 header('Access-Control-Allow-Method: GET, POST, OPTION');
 function getConnection()
