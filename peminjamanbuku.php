@@ -3,50 +3,88 @@ include 'connection.php';
 
 $connection = getConnection();
 
-$id_peminjaman = isset($_GET['id']) ? $_GET['id'] : '';
+// Endpoint untuk menambahkan data peminjaman buku
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $data = json_decode(file_get_contents('php://input'), true);
 
-try {
-    $query = "SELECT * FROM peminjaman_master WHERE id = :id";
+    $tanggalPeminjaman = $data['tanggal_peminjaman'];
+    $tanggalPengembalian = $data['tanggal_pengembalian'];
+    $nomorAnggota = $data['nomor_anggota'];
+    $kodeBuku = $data['kode_buku'];
 
-    $statement = $connection->prepare($query);
+    // Query untuk menyimpan data ke peminjaman_master
+    $queryMaster = "INSERT INTO peminjaman_master (tanggal_peminjaman, tanggal_pengembalian, nomor_anggota, status_peminjaman) 
+                    VALUES ('$tanggalPeminjaman','$tanggalPengembalian', '$nomorAnggota', 'pinjam')";
+    if ($connection->query($queryMaster) === TRUE) {
+        $idPeminjamanMaster = $connection->insert_id;
 
-    $statement->bindParam(':id', $id_peminjaman);
-
-    $statement->execute();
-
-    $peminjaman_master = $statement->fetch(PDO::FETCH_ASSOC);
-
-    if ($peminjaman_master) {
-        $query = "SELECT * FROM peminjaman_detail WHERE id_peminjaman_master = :id";
-
-        $statement = $conn->prepare($query);
-
-        $statement->bindParam(':id', $id_peminjaman);
-
-        $statement->execute();
-
-        $peminjaman_detail = $statement->fetchAll(PDO::FETCH_ASSOC);
-
-        $response = [
-            'status' => 'success',
-            'peminjaman_master' => $peminjaman_master,
-            'peminjaman_detail' => $peminjaman_detail
-        ];
+        // Query untuk menyimpan data ke peminjaman_detail
+        $queryDetail = "INSERT INTO peminjaman_detail (id_peminjaman_master, kode_buku) 
+                        VALUES ('$idPeminjamanMaster', '$kodeBuku')";
+        if ($connection->query($queryDetail) === TRUE) {
+            // Mengembalikan response berhasil
+            $response = array('status' => 'success');
+            echo json_encode($response);
+        } else {
+            // Mengembalikan response gagal
+            $response = array('status' => 'error', 'message' => 'Gagal menyimpan data peminjaman detail');
+            echo json_encode($response);
+        }
     } else {
-        $response = [
-            'status' => 'error',
-            'message' => 'Data peminjaman tidak ditemukan'
-        ];
+        // Mengembalikan response gagal
+        $response = array('status' => 'error', 'message' => 'Gagal menyimpan data peminjaman master');
+        echo json_encode($response);
     }
-} catch (PDOException $e) {
-    $response = [
-        'status' => 'error',
-        'message' => 'Terjadi kesalahan saat mengambil data peminjaman: ' . $e->getMessage()
-    ];
 }
 
-header('Content-Type: application/json');
-echo json_encode($response);
+// Endpoint untuk mengubah status peminjaman buku
+if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+    $data = json_decode(file_get_contents('php://input'), true);
 
-$conn = null;
+    $idPeminjaman = $data['id_peminjaman'];
+    $statusPeminjaman = $data['status_peminjaman'];
+
+    // Query untuk mengupdate status peminjaman
+    $query = "UPDATE peminjaman_master 
+              SET status_peminjaman = '$statusPeminjaman' 
+              WHERE id = $idPeminjaman";
+    if ($connection->query($query) === TRUE) {
+        // Mengembalikan response berhasil
+        $response = array('status' => 'success');
+        echo json_encode($response);
+    } else {
+        // Mengembalikan response gagal
+        $response = array('status' => 'error', 'message' => 'Gagal mengupdate status peminjaman');
+        echo json_encode($response);
+    }
+}
+
+// Endpoint untuk mengambil data peminjaman buku
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    if (isset($_GET['id_peminjaman'])) {
+        $idPeminjaman = $_GET['id_peminjaman'];
+
+        // Query untuk mengambil data peminjaman buku
+        $query = "SELECT * FROM peminjaman_master WHERE id = $idPeminjaman";
+        $result = $connection->query($query);
+
+        if ($result->num_rows > 0) {
+            $peminjaman = $result->fetch_assoc();
+
+            // Mengembalikan data dalam format JSON
+            echo json_encode($peminjaman);
+        } else {
+            // Mengembalikan response gagal
+            $response = array('status' => 'error', 'message' => 'Data peminjaman tidak ditemukan');
+            echo json_encode($response);
+        }
+    } else {
+        // Mengembalikan response gagal
+        $response = array('status' => 'error', 'message' => 'ID peminjaman tidak diberikan');
+        echo json_encode($response);
+    }
+}
+
+// Menutup koneksi database
+$connection = null;
 ?>
